@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>통역팀 순서</title>
+  <style>
+    :root{
+      --bg:#f7f7f9; --card:#ffffff; --text:#1f2937; --muted:#6b7280;
+      --line:#e5e7eb; --accent:#4f46e5; --accent-soft:#eef2ff;
+      --eng:#2563eb; --chn:#dc2626; --shadow:0 8px 24px rgba(15,23,42,.06);
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",Arial,sans-serif;background:var(--bg);color:var(--text)}
+    .wrap{max-width:1080px;margin:0 auto;padding:28px 18px 56px}
+    .hero{background:linear-gradient(135deg,#111827,#312e81);color:white;border-radius:22px;padding:28px;box-shadow:var(--shadow)}
+    h1{margin:0 0 8px;font-size:clamp(28px,5vw,42px)}
+    .hero p{margin:0;color:#dbeafe;line-height:1.6}
+    .searchbox{display:flex;gap:10px;margin-top:22px;flex-wrap:wrap}
+    .searchbox input{flex:1;min-width:220px;padding:15px 16px;border:0;border-radius:14px;font-size:16px;outline:none}
+    button{border:0;border-radius:12px;padding:11px 14px;font-weight:700;cursor:pointer}
+    .primary{background:#fff;color:#312e81}
+    .toolbar{display:flex;justify-content:space-between;gap:10px;align-items:center;margin:22px 0 14px;flex-wrap:wrap}
+    .navs,.filters{display:flex;gap:8px;flex-wrap:wrap}
+    .ghost{background:#fff;border:1px solid var(--line);color:var(--text)}
+    .ghost.active{background:var(--accent);color:white;border-color:var(--accent)}
+    .period{font-weight:800;font-size:20px}
+    .panel{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);overflow:hidden;margin-top:14px}
+    .panel-head{padding:18px 20px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
+    .panel-head h2{margin:0;font-size:20px}
+    .small{font-size:13px;color:var(--muted)}
+    .result-empty{padding:24px;color:var(--muted)}
+    .result-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px;padding:16px}
+    .result-card{border:1px solid var(--line);border-radius:14px;padding:14px;background:#fff}
+    .result-card .date{font-weight:800;margin-bottom:6px}
+    .badge{display:inline-block;padding:4px 8px;border-radius:999px;font-size:12px;font-weight:800;margin-right:6px}
+    .badge.eng{background:#dbeafe;color:#1d4ed8}
+    .badge.chn{background:#fee2e2;color:#b91c1c}
+    .who{margin-top:8px;line-height:1.55}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:13px 14px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+    th{background:#f9fafb;font-size:13px;color:var(--muted)}
+    tr:last-child td{border-bottom:0}
+    .datecell{white-space:nowrap;font-weight:700}
+    .engtxt{color:var(--eng);font-weight:700}
+    .chntxt{color:var(--chn);font-weight:700}
+    .note{margin-top:16px;padding:16px 18px;background:#fff;border:1px solid var(--line);border-radius:16px;color:var(--muted);line-height:1.65}
+    .footer{text-align:center;color:var(--muted);font-size:12px;margin-top:24px}
+    @media (max-width:720px){
+      .wrap{padding:16px 10px 40px}.hero{padding:22px 18px;border-radius:16px}
+      th:nth-child(4),td:nth-child(4){display:none}
+      th,td{padding:11px 9px;font-size:14px}
+      .period{font-size:18px}
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <section class="hero">
+    <h1>⭐ 통역팀 순서</h1>
+    <p>영어·중국어 통역 순서를 두 달 단위로 확인하고, 이름을 검색하면 본인의 통역 날짜를 바로 볼 수 있습니다.</p>
+    <div class="searchbox">
+      <input id="nameSearch" type="search" placeholder="이름을 입력하세요 (예: 신혜수, 레이, 장가리)" />
+      <button class="primary" id="searchBtn">내 일정 찾기</button>
+    </div>
+  </section>
+
+  <div class="toolbar">
+    <div class="navs">
+      <button class="ghost" id="prevBtn">← 이전 2개월</button>
+      <button class="ghost" id="todayBtn">현재 2개월</button>
+      <button class="ghost" id="nextBtn">다음 2개월 →</button>
+    </div>
+    <div class="period" id="periodLabel"></div>
+  </div>
+
+  <div class="filters">
+    <button class="ghost active" data-filter="all">전체</button>
+    <button class="ghost" data-filter="eng">영어</button>
+    <button class="ghost" data-filter="chn">중국어</button>
+  </div>
+
+  <section class="panel" id="searchPanel" style="display:none">
+    <div class="panel-head">
+      <h2 id="searchTitle">검색 결과</h2>
+      <div class="small">선택한 두 달 + 이후 예정 일정</div>
+    </div>
+    <div id="searchResults"></div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h2>두 달 통역 일정</h2>
+      <div class="small">토·일요일 기준</div>
+    </div>
+    <div style="overflow-x:auto">
+      <table>
+        <thead>
+          <tr>
+            <th>날짜</th>
+            <th>영어 통역</th>
+            <th>중국어 통역</th>
+            <th>요일</th>
+          </tr>
+        </thead>
+        <tbody id="scheduleBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="note">
+    <strong>순환 규칙</strong><br>
+    영어 토요일: 9/5 김서우·신혜수 / 이후 1번: 문연정 → 신혜수 → 김서우 순환 / 2번: 이보우 → 김종찬 → 이겸손 순환<br>
+    영어 일요일: 임강현·최하훈 ↔ 정혜인·유가영<br>
+    중국어 토요일: 최민석은 매월 네 번째 토요일 1회, 그 외에는 레이 ↔ 하안진 순환 / 보조: 김상진·김령<br>
+    중국어 일요일: 장가리·장등월 → 욱아경·장가리 → 장등월·욱아경 → 장가리·욱아경 순환
+  </div>
+
+  <div class="footer">기준 시작일: 2026년 9월 5일 · 9/5 배정 후 로테이션은 9/12부터 다음 순번으로 이어짐</div>
+</div>
+
+<script>
+const START = new Date(2026, 8, 5); // 2026-09-05
+const END = new Date(2032, 11, 31);
+
+const engSatA = ["김서우","문연정","신혜수"];
+const engSatB = ["이보우","김종찬","이겸손"];
+const engSun = [["임강현","최하훈"],["정혜인","유가영"]];
+
+const chnSun = [
+  ["장가리","장등월"],
+  ["욱아경","장가리"],
+  ["장등월","욱아경"],
+  ["장가리","욱아경"]
+];
+
+function ymd(d){
+  const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,"0"), day=String(d.getDate()).padStart(2,"0");
+  return `${y}-${m}-${day}`;
+}
+function koDate(d){ return `${d.getMonth()+1}/${d.getDate()}`; }
+function weekday(d){ return ["일","월","화","수","목","금","토"][d.getDay()]; }
+function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
+function weekIndexFromStart(d){
+  const ms = d - START;
+  return Math.floor(ms / (7*24*60*60*1000));
+}
+function nthSaturdayOfMonth(d){
+  if(d.getDay()!==6) return 0;
+  return Math.floor((d.getDate()-1)/7)+1;
+}
+
+// 중국어 토요일의 레이/하안진 alternation은 최민석 주를 건너뛰고 계속 이어진다.
+function chineseSaturdayMain(d){
+  if(nthSaturdayOfMonth(d)===4) return "최민석";
+  let count = 0;
+  for(let x=new Date(START); x<=d; x=addDays(x,7)){
+    if(x.getDay()===6 && nthSaturdayOfMonth(x)!==4){
+      if(ymd(x)===ymd(d)) return count % 2 === 0 ? "레이" : "하안진";
+      count++;
+    }
+  }
+  return "";
+}
+
+function getScheduleForDate(d){
+  const wi = weekIndexFromStart(d);
+  if(d < START || d > END || (d.getDay()!==0 && d.getDay()!==6)) return null;
+
+  if(d.getDay()===6){
+    // 2026-09-05 is a fixed exception. New English Saturday rotation begins 2026-09-12.
+    let engPair;
+    if(ymd(d)==="2026-09-05"){
+      engPair = ["김서우","신혜수"];
+    } else {
+      const newEngStart = new Date(2026, 8, 12);
+      const newWi = Math.floor((d - newEngStart) / (7*24*60*60*1000));
+      const firstRotation = ["문연정","신혜수","김서우"];
+      const secondRotation = ["이보우","김종찬","이겸손"];
+      engPair = [
+        firstRotation[((newWi % firstRotation.length)+firstRotation.length)%firstRotation.length],
+        secondRotation[((newWi % secondRotation.length)+secondRotation.length)%secondRotation.length]
+      ];
+    }
+    return {
+      date:new Date(d),
+      eng:engPair,
+      chn:[chineseSaturdayMain(d), "김상진·김령"]
+    };
+  } else {
+    const sundayWeek = Math.floor((d - addDays(START,1)) / (7*24*60*60*1000));
+    const e = engSun[((sundayWeek % 2)+2)%2];
+    const c = chnSun[((sundayWeek % 4)+4)%4];
+    return { date:new Date(d), eng:e, chn:c };
+  }
+}
+
+function generateRange(from,to){
+  const out=[];
+  for(let d=new Date(from); d<=to; d=addDays(d,1)){
+    if(d.getDay()===0 || d.getDay()===6){
+      const row=getScheduleForDate(d);
+      if(row) out.push(row);
+    }
+  }
+  return out;
+}
+
+function twoMonthBlockForDate(d){
+  const y=d.getFullYear();
+  const startMonth = Math.floor(d.getMonth()/2)*2;
+  return {y, m:startMonth};
+}
+
+let block = twoMonthBlockForDate(new Date(2026,8,5));
+let filter = "all";
+
+function blockDates(){
+  const from = new Date(block.y, block.m, 1);
+  const to = new Date(block.y, block.m+2, 0);
+  return {from,to};
+}
+
+function moveBlock(delta){
+  const d = new Date(block.y, block.m + delta*2, 1);
+  block = {y:d.getFullYear(), m:d.getMonth()};
+  render();
+}
+
+function teamText(arr){ return arr ? arr.join(" / ") : "—"; }
+
+function render(){
+  const {from,to}=blockDates();
+  document.getElementById("periodLabel").textContent =
+    `${from.getFullYear()}년 ${from.getMonth()+1}–${to.getMonth()+1}월`;
+
+  const rows = generateRange(from,to);
+  const body=document.getElementById("scheduleBody");
+  body.innerHTML = rows.map(r=>{
+    const eng = filter==="chn" ? "—" : teamText(r.eng);
+    const chn = filter==="eng" ? "—" : teamText(r.chn);
+    return `<tr>
+      <td class="datecell">${koDate(r.date)}</td>
+      <td class="engtxt">${eng}</td>
+      <td class="chntxt">${chn}</td>
+      <td>${weekday(r.date)}</td>
+    </tr>`;
+  }).join("");
+
+  const query=document.getElementById("nameSearch").value.trim();
+  if(query) showSearch(query);
+}
+
+function showSearch(query){
+  const panel=document.getElementById("searchPanel");
+  panel.style.display="block";
+  document.getElementById("searchTitle").textContent=`“${query}” 통역 일정`;
+
+  const {from}=blockDates();
+  const searchFrom = from < START ? START : from;
+  const searchTo = new Date(searchFrom.getFullYear()+1, searchFrom.getMonth()+2, 0);
+  const rows=generateRange(searchFrom, searchTo);
+
+  let matches=[];
+  rows.forEach(r=>{
+    if(filter!=="chn" && r.eng.some(n=>n.includes(query) || query.includes(n))){
+      matches.push({date:r.date, team:"영어", cls:"eng", people:r.eng});
+    }
+    if(filter!=="eng" && r.chn.some(n=>n.includes(query) || query.includes(n) || n.split("·").some(x=>x.includes(query)))){
+      matches.push({date:r.date, team:"중국어", cls:"chn", people:r.chn});
+    }
+  });
+
+  matches.sort((a,b)=>a.date-b.date);
+  const box=document.getElementById("searchResults");
+  if(!matches.length){
+    box.innerHTML=`<div class="result-empty">검색된 통역 일정이 없습니다. 이름 철자를 확인해 주세요.</div>`;
+    return;
+  }
+  box.innerHTML=`<div class="result-grid">`+matches.map(m=>`
+    <div class="result-card">
+      <div class="date">${m.date.getFullYear()}년 ${m.date.getMonth()+1}월 ${m.date.getDate()}일 (${weekday(m.date)})</div>
+      <span class="badge ${m.cls}">${m.team}</span>
+      <div class="who">${m.people.join(" / ")}</div>
+    </div>`).join("")+`</div>`;
+}
+
+document.getElementById("prevBtn").onclick=()=>moveBlock(-1);
+document.getElementById("nextBtn").onclick=()=>moveBlock(1);
+document.getElementById("todayBtn").onclick=()=>{
+  block=twoMonthBlockForDate(new Date(2026,8,5));
+  render();
+};
+document.getElementById("searchBtn").onclick=()=>{
+  const q=document.getElementById("nameSearch").value.trim();
+  if(q) showSearch(q);
+};
+document.getElementById("nameSearch").addEventListener("keydown",e=>{
+  if(e.key==="Enter"){ const q=e.target.value.trim(); if(q) showSearch(q); }
+});
+document.querySelectorAll("[data-filter]").forEach(btn=>{
+  btn.onclick=()=>{
+    document.querySelectorAll("[data-filter]").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+    filter=btn.dataset.filter;
+    render();
+  };
+});
+
+render();
+</script>
+</body>
+</html>
